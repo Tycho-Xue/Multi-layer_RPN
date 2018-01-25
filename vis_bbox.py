@@ -17,8 +17,8 @@ def plot_bbox(img_data,C,bbox,epoch_num,index):
             w = bbox[0][i][2]
             h = bbox[0][i][3]
             x1_resize = x_c - w/2.0
-            y1_resize = y_c - w/2.0
-            x2_resize = x_c + h/2.0
+            y1_resize = y_c - h/2.0
+            x2_resize = x_c + w/2.0
             y2_resize = y_c + h/2.0
         
             x1_original = x1_resize * (float(width)/resized_width)

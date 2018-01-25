@@ -7,6 +7,7 @@ import numpy as np
 from optparse import OptionParser
 import pickle
 import tensorflow as tf
+from CaltechAnnotations import getall
 from keras import backend as K
 from keras.optimizers import Adam, SGD, RMSprop
 from keras.layers import Input
@@ -16,6 +17,7 @@ from keras_frcnn import losses as losses
 import keras_frcnn.roi_helpers as roi_helpers
 from keras.utils import generic_utils
 import vis_bbox
+import copy
 sys.setrecursionlimit(40000)
 
 parser = OptionParser()
@@ -38,8 +40,8 @@ parser.add_option("--input_weight_path", dest="input_weight_path", help="Input p
 
 (options, args) = parser.parse_args()
 
-if not options.train_path:   # if filename is not given
-    parser.error('Error: path to training data must be specified. Pass --path to command line')
+#if not options.train_path:   # if filename is not given
+#    parser.error('Error: path to training data must be specified. Pass --path to command line')
 
 if options.parser == 'pascal_voc':
     from keras_frcnn.pascal_voc_parser import get_data
@@ -76,10 +78,12 @@ else:
     # set the path to weights based on backend and model
     C.base_net_weights = nn.get_weight_path()
 
+caltechpath = '/data/stars/user/aabubakr/pd_datasets/datasets/caltech/annot' \
+              '-new-sk30/images'
 ###########################################################
 ###################training data interface#################
 ###########################################################
-all_imgs, classes_count, class_mapping = get_data(options.train_path)
+all_imgs, classes_count, class_mapping = getall(caltechpath, 'train')
 ###########################################################
 if 'bg' not in classes_count:
     classes_count['bg'] = 0
@@ -102,10 +106,10 @@ with open(config_output_filename, 'wb') as config_f:
 random.shuffle(all_imgs)
 
 num_imgs = len(all_imgs)
-
-train_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
-val_imgs = [s for s in all_imgs if s['imageset'] == 'test']
-
+#train_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
+#val_imgs = [s for s in all_imgs if s['imageset'] == 'test']
+train_imgs = copy.deepcopy(all_imgs)
+val_imgs = copy.deepcopy(all_imgs)
 print('Num train samples {}'.format(len(train_imgs)))
 print('Num val samples {}'.format(len(val_imgs)))
 
@@ -186,7 +190,7 @@ model_rpn_5.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors),
 #model_classifier.compile(optimizer=optimizer_classifier, loss=[losses.class_loss_cls, losses.class_loss_regr(len(classes_count)-1)], metrics={'dense_class_{}'.format(len(classes_count)): 'accuracy'})
 #model_all.compile(optimizer='sgd', loss='mae')
 
-epoch_length = 1000
+epoch_length = 50
 num_epochs = int(options.num_epochs)
 iter_num = 0
 
@@ -220,12 +224,12 @@ for epoch_num in range(num_epochs):
     progbar_rpn5 = generic_utils.Progbar(epoch_length)
     names_progbar = [progbar_rpn1, progbar_rpn2, progbar_rpn3, progbar_rpn4, progbar_rpn5]
     print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
-
+    iter_num = 0
     while True:
         try:
             iter_num += 1
             for index, name_data in enumerate(names_data):
-                if index is 0:
+                if index is 0 or index is 1:
                     continue
                 stride = strides[index]
                 C.rpn_stride = stride
@@ -239,11 +243,11 @@ for epoch_num in range(num_epochs):
                 X, Y, img_data = next(name_data)
                 time_data_end = time.time()
                 time_data = time_data_end - time_data_start
-                print("\n time spent on data_generation for rpn_{}:{}".format(index+1, time_data))
+                print("\n time spent on data_generation for rpn_{}: {}".format(index+1, time_data))
 # ##########training part of the rpns
                 names_loss[index] = names_rpn_model[index].train_on_batch(X, Y)
                 P_rpn = names_rpn_model[index].predict_on_batch(X)
-                R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7, max_boxes=300)
+                R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.5, max_boxes=200)
                 # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
                 X2, Y1, Y2, IouS = roi_helpers.calc_iou(R, img_data, C, class_mapping)
 
