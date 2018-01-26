@@ -8,7 +8,7 @@ bbox_plot/
 __pycache__/
 *.py[cod]
 *$py.class
-
+*.swn
 # C extensions
 *.so
 
